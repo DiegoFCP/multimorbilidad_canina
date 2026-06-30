@@ -33,7 +33,9 @@ from preprocess import (  # noqa: E402
     FEATURE_ORDER,
     PARAM_GRID,
     RANDOM_STATE,
+    apply_imputer,
     artifact_dir,
+    fit_imputer,
     is_maestro_format,
     prepare_dataframe_features,
     save_metadata,
@@ -87,19 +89,27 @@ def load_data() -> pd.DataFrame:
 
 def main() -> None:
     df = load_data()
-    X, y, medians, preventive_stats = prepare_dataframe_features(df)
+    X_raw, y, medians, preventive_stats = prepare_dataframe_features(df)
 
     mask = y.notna()
-    X, y = X.loc[mask], y.loc[mask]
+    X_raw, y = X_raw.loc[mask], y.loc[mask]
 
     if y.nunique() < 2:
         raise ValueError("El target multimorbidity_flag requiere al menos dos clases.")
 
-    print(f"Filas: {len(X)} | Features: {len(FEATURE_ORDER)} | Tasa multimorbilidad: {y.mean():.3f}")
+    print(f"Filas: {len(X_raw)} | Features: {len(FEATURE_ORDER)} | Tasa multimorbilidad: {y.mean():.3f}")
+    missing_pct = X_raw.isna().mean().mul(100).round(2)
+    if missing_pct.max() > 0:
+        print("NaNs antes de KNNImputer (% por columna):")
+        print(missing_pct[missing_pct > 0].to_string())
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=RANDOM_STATE, stratify=y
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X_raw, y, test_size=0.25, random_state=RANDOM_STATE, stratify=y
     )
+
+    imputer_cv = fit_imputer(X_train_raw)
+    X_train = apply_imputer(X_train_raw, imputer_cv)
+    X_test = apply_imputer(X_test_raw, imputer_cv)
 
     models = {
         "Naive Bayes Gaussian": make_pipeline(StandardScaler(), GaussianNB()),
@@ -148,7 +158,10 @@ def main() -> None:
     grid.fit(X_train, y_train)
 
     best_model = grid.best_estimator_
-    best_model.fit(X, y)  # reentrenar con todos los datos para despliegue
+
+    imputer_prod = fit_imputer(X_raw)
+    X_full = apply_imputer(X_raw, imputer_prod)
+    best_model.fit(X_full, y)  # reentrenar con todos los datos para despliegue
 
     y_pred = best_model.predict(X_test)
     y_proba = best_model.predict_proba(X_test)[:, 1]
@@ -162,6 +175,7 @@ def main() -> None:
 
     out = artifact_dir()
     joblib.dump(best_model, out / "model.joblib")
+    joblib.dump(imputer_prod, out / "imputer.joblib")
 
     best_payload = {
         "best_params": grid.best_params_,

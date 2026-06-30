@@ -10,9 +10,12 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from sklearn.impute import KNNImputer
 
 RANDOM_STATE = 42
 LBS_TO_KG = 0.453592
+IMPUTATION_METHOD = "knn"
+KNN_IMPUTER_KWARGS = {"n_neighbors": 5, "weights": "distance"}
 
 # Columnas crudas en dap_consolidado
 RAW_ACTIVITY = [
@@ -76,10 +79,32 @@ def artifact_dir(base: Path | None = None) -> Path:
 
 
 def imputar_mediana_segura(s: pd.Series) -> pd.Series:
+    """Fallback para estadísticas auxiliares (z-score preventivo en DAP crudo)."""
     s = pd.to_numeric(s, errors="coerce")
     if s.isna().all():
         return s.fillna(0)
     return s.fillna(s.median())
+
+
+def create_imputer() -> KNNImputer:
+    return KNNImputer(**KNN_IMPUTER_KWARGS)
+
+
+def fit_imputer(X: pd.DataFrame, imputer: KNNImputer | None = None) -> KNNImputer:
+    if imputer is None:
+        imputer = create_imputer()
+    imputer.fit(X[FEATURE_ORDER].to_numpy(dtype=float))
+    return imputer
+
+
+def apply_imputer(X: pd.DataFrame, imputer: KNNImputer) -> pd.DataFrame:
+    arr = imputer.transform(X[FEATURE_ORDER].to_numpy(dtype=float))
+    return pd.DataFrame(arr, columns=FEATURE_ORDER, index=X.index)
+
+
+def compute_reference_medians(X: pd.DataFrame) -> dict[str, float]:
+    """Medianas de referencia para metadatos y score preventivo en DAP crudo."""
+    return {c: float(imputar_mediana_segura(X[c]).median()) for c in FEATURE_ORDER if c in X.columns}
 
 
 def zscore_seguro(s: pd.Series) -> pd.Series:
@@ -132,11 +157,20 @@ def is_maestro_format(df: pd.DataFrame) -> bool:
     return "multimorbidity_flag" in df.columns and "preventive_care_score" in df.columns
 
 
-def encode_diet_primary(series: pd.Series) -> pd.Series:
+def encode_diet_primary_raw(series: pd.Series) -> pd.Series:
     if pd.api.types.is_numeric_dtype(series):
-        return imputar_mediana_segura(series)
+        return pd.to_numeric(series, errors="coerce")
     mapped = series.astype(str).str.strip().str.lower().map(DIET_PRIMARY_MAP)
-    return imputar_mediana_segura(mapped)
+    return pd.to_numeric(mapped, errors="coerce")
+
+
+def encode_diet_primary(series: pd.Series) -> pd.Series:
+    return imputar_mediana_segura(encode_diet_primary_raw(series))
+
+
+def _raw_numeric(value: Any) -> float:
+    v = pd.to_numeric(value, errors="coerce")
+    return float(v) if pd.notna(v) else np.nan
 
 
 def estimate_preventive_care_score_api(cleaned: dict[str, float]) -> float:
@@ -153,17 +187,19 @@ def prepare_maestro_features(
     df: pd.DataFrame,
     medians: dict[str, float] | None = None,
 ) -> tuple[pd.DataFrame, pd.Series, dict[str, float], dict[str, dict[str, float]]]:
-    """Construye X e y desde maestro_dap.csv (columnas ya alineadas al modelo)."""
+    """Construye X e y desde maestro_dap.csv (NaNs preservados para KNNImputer)."""
     data = df.copy()
     X = pd.DataFrame(index=data.index)
     for col in FEATURE_ORDER:
         if col == "diet_primary":
-            X[col] = encode_diet_primary(data["diet_primary"])
+            X[col] = encode_diet_primary_raw(data["diet_primary"])
+        elif col in data.columns:
+            X[col] = pd.to_numeric(data[col], errors="coerce")
         else:
-            X[col] = imputar_mediana_segura(data[col]) if col in data.columns else 0.0
+            X[col] = np.nan
 
     if medians is None:
-        medians = {c: float(X[c].median()) for c in FEATURE_ORDER}
+        medians = compute_reference_medians(X)
 
     y = pd.to_numeric(data["multimorbidity_flag"], errors="coerce").fillna(0).astype(int)
     return X, y, medians, {}
@@ -237,29 +273,15 @@ def prepare_dataframe_features(
     rows = []
     for idx in df.index:
         row_raw = df.loc[idx]
-        dental = row_raw.get("mp_dental_brushing_frequency", medians.get("mp_dental_brushing_frequency", 0))
-        if pd.isna(dental):
-            dental = medians.get("mp_dental_brushing_frequency", 0)
-
-        supplements = row_raw.get(supp_col, medians.get(supp_col, medians.get(SUPPLEMENT_PROXY, 0)))
-        if pd.isna(supplements):
-            supplements = medians.get(supp_col, medians.get(SUPPLEMENT_PROXY, 0))
-
-        diet = row_raw.get("df_primary_diet_component_organic", medians.get("df_primary_diet_component_organic", 0))
-        if pd.isna(diet):
-            diet = medians.get("df_primary_diet_component_organic", 0)
-
-        weight_lbs = row_raw.get("dd_weight_lbs", medians.get("dd_weight_lbs", 0))
-        if pd.isna(weight_lbs):
-            weight_lbs = medians.get("dd_weight_lbs", 0)
-
-        age = row_raw.get("dd_edad_anios", medians.get("dd_edad_anios", 0))
-        if pd.isna(age):
-            age = medians.get("dd_edad_anios", 0)
-
-        act_level = row_raw.get("pa_activity_level", medians.get("pa_activity_level", 0))
-        act_int = row_raw.get("pa_avg_activity_intensity", medians.get("pa_avg_activity_intensity", 0))
-        act_min = row_raw.get("pa_avg_daily_active_minutes", medians.get("pa_avg_daily_active_minutes", 0))
+        dental = _raw_numeric(row_raw.get("mp_dental_brushing_frequency"))
+        supplements = _raw_numeric(row_raw.get(supp_col))
+        diet = _raw_numeric(row_raw.get("df_primary_diet_component_organic"))
+        weight_lbs = _raw_numeric(row_raw.get("dd_weight_lbs"))
+        age = _raw_numeric(row_raw.get("dd_edad_anios"))
+        act_level = _raw_numeric(row_raw.get("pa_activity_level"))
+        act_int = _raw_numeric(row_raw.get("pa_avg_activity_intensity"))
+        act_min = _raw_numeric(row_raw.get("pa_avg_daily_active_minutes"))
+        grooming = _raw_numeric(row_raw.get("mp_professional_grooming"))
 
         api_row = {
             "pa_activity_level": act_level,
@@ -268,11 +290,9 @@ def prepare_dataframe_features(
             "dental_brushing_freq": dental,
             "daily_supplements": supplements,
             "diet_primary": diet,
-            "weight_kg": float(weight_lbs) * LBS_TO_KG,
+            "weight_kg": float(weight_lbs) * LBS_TO_KG if pd.notna(weight_lbs) else np.nan,
             "age_derived": age,
-            "mp_professional_grooming": row_raw.get(
-                "mp_professional_grooming", medians.get("mp_professional_grooming", 0)
-            ),
+            "mp_professional_grooming": grooming,
             "mp_dental_examination_frequency": supplements,
             "df_primary_diet_component_organic": diet,
             "mp_dental_brushing_frequency": dental,
@@ -310,6 +330,7 @@ def build_features_from_api(
     medians: dict[str, float],
     preventive_stats: dict[str, dict[str, float]],
     data_source: str = "dap",
+    imputer: KNNImputer | None = None,
 ) -> pd.DataFrame:
     cleaned, errors = validate_input(data)
     if errors:
@@ -327,10 +348,17 @@ def build_features_from_api(
             row, preventive_stats, medians
         )
 
-    return pd.DataFrame([[row[c] for c in FEATURE_ORDER]], columns=FEATURE_ORDER)
+    X_raw = pd.DataFrame([[row[c] for c in FEATURE_ORDER]], columns=FEATURE_ORDER)
+    if imputer is not None:
+        return apply_imputer(X_raw, imputer)
+    return X_raw
 
 
-def load_metadata(base: Path | None = None) -> tuple[dict[str, float], dict[str, dict[str, float]], list[str], dict, str]:
+def load_metadata(
+    base: Path | None = None,
+) -> tuple[dict[str, float], dict[str, dict[str, float]], list[str], dict, str, KNNImputer | None]:
+    import joblib
+
     base = artifact_dir(base)
     with open(base / "imputation_medians.json", encoding="utf-8") as f:
         medians = json.load(f)
@@ -344,7 +372,9 @@ def load_metadata(base: Path | None = None) -> tuple[dict[str, float], dict[str,
         with open(best_path, encoding="utf-8") as f:
             best = json.load(f)
     data_source = score_params.get("data_source", "dap")
-    return medians, score_params.get("preventive_stats", {}), features, best, data_source
+    imputer_path = base / "imputer.joblib"
+    imputer = joblib.load(imputer_path) if imputer_path.exists() else None
+    return medians, score_params.get("preventive_stats", {}), features, best, data_source, imputer
 
 
 def save_metadata(
@@ -365,6 +395,8 @@ def save_metadata(
                 "preventive_stats": preventive_stats,
                 "supplement_proxy": SUPPLEMENT_PROXY,
                 "data_source": data_source,
+                "imputation_method": IMPUTATION_METHOD,
+                "imputer_params": KNN_IMPUTER_KWARGS,
             },
             f,
             indent=2,

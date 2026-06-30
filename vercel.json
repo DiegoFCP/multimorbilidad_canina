@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node BIY7121_EV3_CortesDiego/scripts/vercel-build.js",
+  "outputDirectory": "BIY7121_EV3_CortesDiego/visualizacion",
+  "installCommand": ""
+}

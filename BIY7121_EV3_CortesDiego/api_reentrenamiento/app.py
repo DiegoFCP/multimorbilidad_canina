@@ -23,7 +23,9 @@ sys.path.insert(0, str(MODEL_DIR))
 from preprocess import (  # noqa: E402
     PARAM_GRID,
     RANDOM_STATE,
+    apply_imputer,
     artifact_dir,
+    fit_imputer,
     is_maestro_format,
     load_metadata,
     prepare_dataframe_features,
@@ -34,26 +36,32 @@ app = Flask(__name__)
 
 
 def run_retrain(df: pd.DataFrame) -> dict:
-    X, y, medians, preventive_stats = prepare_dataframe_features(df)
+    X_raw, y, medians, preventive_stats = prepare_dataframe_features(df)
     mask = y.notna() & (y.nunique() >= 1)
-    X, y = X.loc[mask], y.loc[mask]
+    X_raw, y = X_raw.loc[mask], y.loc[mask]
 
     if y.nunique() < 2:
         raise ValueError("El CSV debe producir al menos dos clases en multimorbidity_flag.")
 
-    _, _, _, best_meta, _ = load_metadata(MODEL_DIR)
+    _, _, _, best_meta, _, _ = load_metadata(MODEL_DIR)
     param_grid = best_meta.get("param_grid", PARAM_GRID)
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, random_state=RANDOM_STATE, stratify=y
+    X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+        X_raw, y, test_size=0.25, random_state=RANDOM_STATE, stratify=y
     )
+
+    imputer_cv = fit_imputer(X_train_raw)
+    X_train = apply_imputer(X_train_raw, imputer_cv)
+    X_test = apply_imputer(X_test_raw, imputer_cv)
 
     rf = RandomForestClassifier(class_weight="balanced", random_state=RANDOM_STATE, n_jobs=-1)
     grid = GridSearchCV(rf, param_grid, cv=5, scoring="f1", n_jobs=-1, refit=True)
     grid.fit(X_train, y_train)
 
     best_model = grid.best_estimator_
-    best_model.fit(X, y)
+    imputer_prod = fit_imputer(X_raw)
+    X_full = apply_imputer(X_raw, imputer_prod)
+    best_model.fit(X_full, y)
 
     y_pred = best_model.predict(X_test)
     y_proba = best_model.predict_proba(X_test)[:, 1]
@@ -63,6 +71,7 @@ def run_retrain(df: pd.DataFrame) -> dict:
 
     out = artifact_dir(MODEL_DIR)
     joblib.dump(best_model, out / "model.joblib")
+    joblib.dump(imputer_prod, out / "imputer.joblib")
 
     best_payload = {
         "best_params": grid.best_params_,

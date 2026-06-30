@@ -1,5 +1,10 @@
 {
   "preventive_stats": {},
   "supplement_proxy": "mp_dental_examination_frequency",
-  "data_source": "maestro"
+  "data_source": "maestro",
+  "imputation_method": "knn",
+  "imputer_params": {
+    "n_neighbors": 5,
+    "weights": "distance"
+  }
 }

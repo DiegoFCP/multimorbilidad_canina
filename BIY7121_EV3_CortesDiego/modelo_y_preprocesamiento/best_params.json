@@ -1,13 +1,13 @@
 {
   "best_params": {
-    "max_depth": 6,
+    "max_depth": 14,
     "min_samples_leaf": 20,
-    "n_estimators": 200
+    "n_estimators": 150
   },
-  "best_cv_f1": 0.5595077419887703,
-  "f1_test": 0.5614375910636231,
-  "roc_auc_test": 0.7867999290654276,
-  "metric_reference": "F1_cv=0.5595",
+  "best_cv_f1": 0.5596371340471429,
+  "f1_test": 0.5942082563154651,
+  "roc_auc_test": 0.8217427312253146,
+  "metric_reference": "F1_cv=0.5596",
   "param_grid": {
     "n_estimators": [
       100,

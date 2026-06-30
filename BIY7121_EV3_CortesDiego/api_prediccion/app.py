@@ -28,6 +28,7 @@ def add_cors_headers(response):
 
 
 _model = None
+_imputer = None
 _medians = None
 _preventive_stats = None
 _data_source = "dap"
@@ -35,9 +36,9 @@ _metric_reference = "F1_cv"
 
 
 def get_model():
-    global _model, _medians, _preventive_stats, _data_source, _metric_reference
+    global _model, _imputer, _medians, _preventive_stats, _data_source, _metric_reference
     if _model is None:
-        _medians, _preventive_stats, _, best, _data_source = load_metadata(MODEL_DIR)
+        _medians, _preventive_stats, _, best, _data_source, _imputer = load_metadata(MODEL_DIR)
         _metric_reference = best.get("metric_reference", "F1_cv")
         model_path = MODEL_DIR / "model.joblib"
         if not model_path.exists():
@@ -45,7 +46,7 @@ def get_model():
                 f"No existe {model_path}. Ejecute modelo_y_preprocesamiento/train_and_export.py"
             )
         _model = joblib.load(model_path)
-    return _model, _medians, _preventive_stats, _data_source
+    return _model, _imputer, _medians, _preventive_stats, _data_source
 
 
 @app.route("/health", methods=["GET"])
@@ -66,8 +67,10 @@ def predict():
         return jsonify({"error": "JSON inválido o vacío"}), 400
 
     try:
-        model, medians, preventive_stats, data_source = get_model()
-        X = build_features_from_api(data, medians, preventive_stats, data_source=data_source)
+        model, imputer, medians, preventive_stats, data_source = get_model()
+        X = build_features_from_api(
+            data, medians, preventive_stats, data_source=data_source, imputer=imputer
+        )
         pred = int(model.predict(X)[0])
         proba = float(model.predict_proba(X)[0][1])
     except ValueError as exc:

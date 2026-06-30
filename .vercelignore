@@ -1,0 +1,8 @@
+docs/
+word/
+.cursor/
+.venv/
+*.zip
+maestro_dap.csv
+Proyecto_Mineria_DAPv3_MARKDOWNS.ipynb
+BIY7121_EV3_CortesDiego/data/maestro_dap.csv
