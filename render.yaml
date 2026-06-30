@@ -1,0 +1,27 @@
+# Blueprint en la raíz del repo (multimorbilidad_canina)
+# Render → New → Blueprint → conectar DiegoFCP/multimorbilidad_canina
+
+services:
+  - type: web
+    name: dap-predict-api
+    runtime: python
+    plan: free
+    rootDir: BIY7121_EV3_CortesDiego
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir api_prediccion --bind 0.0.0.0:$PORT --timeout 120 app:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+  - type: web
+    name: dap-retrain-api
+    runtime: python
+    plan: free
+    rootDir: BIY7121_EV3_CortesDiego
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir api_reentrenamiento --bind 0.0.0.0:$PORT --timeout 300 app:app
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
