@@ -1,0 +1,11 @@
+{
+  "preventive_care_score": 3.0,
+  "pa_activity_level": 2.0,
+  "pa_avg_activity_intensity": 2.0,
+  "total_daily_active_minutes": 120.0,
+  "dental_brushing_freq": 0.0,
+  "daily_supplements": 0.0,
+  "diet_primary": 0.0,
+  "weight_kg": 22.675736961451246,
+  "age_derived": 6.0
+}

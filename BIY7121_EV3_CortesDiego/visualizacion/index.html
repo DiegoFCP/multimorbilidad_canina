@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV3 DAP — Riesgo de multimorbilidad canina</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Predicción de multimorbilidad canina</h1>
+      <p class="subtitle">
+        Dog Aging Project — BIY7121 EV3 CortesDiego<br>
+        Insight: el cuidado preventivo y la actividad del tutor se asocian con la carga de enfermedades del perro.
+      </p>
+    </header>
+
+    <section class="card">
+      <h2>Ingreso manual</h2>
+      <form id="predict-form">
+        <div class="grid">
+          <label>Nivel de actividad (1-4)
+            <input type="number" name="pa_activity_level" min="1" max="4" value="2" required>
+          </label>
+          <label>Intensidad de actividad (0-4)
+            <input type="number" name="pa_avg_activity_intensity" min="0" max="4" step="0.1" value="1.5" required>
+          </label>
+          <label>Minutos activos al día
+            <input type="number" name="total_daily_active_minutes" min="0" max="600" value="60" required>
+          </label>
+          <label>Frecuencia cepillado dental (0-6)
+            <input type="number" name="dental_brushing_freq" min="0" max="6" value="2" required>
+          </label>
+          <label>Suplementos / examen dental (0-5)
+            <input type="number" name="daily_supplements" min="0" max="5" value="1" required>
+          </label>
+          <label>Dieta orgánica (0=No, 1=Sí)
+            <input type="number" name="diet_primary" min="0" max="1" value="0" required>
+          </label>
+          <label>Peso del perro (kg)
+            <input type="number" name="weight_kg" min="1" max="80" step="0.1" value="15" required>
+          </label>
+          <label>Edad del perro (años)
+            <input type="number" name="age_derived" min="0" max="25" step="0.5" value="6" required>
+          </label>
+        </div>
+        <button type="submit">Predecir riesgo</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Subir CSV</h2>
+      <p class="hint">Se usará la primera fila del archivo. Columnas DAP crudas o campos API.</p>
+      <label for="csv-file">Archivo CSV</label>
+      <input type="file" id="csv-file" accept=".csv">
+      <button type="button" id="csv-predict-btn">Predecir desde CSV</button>
+    </section>
+
+    <section class="card" id="result-section" hidden>
+      <h2>Resultado</h2>
+      <div id="result-badge" class="badge"></div>
+      <p id="result-probability"></p>
+      <div class="bar-wrap"><div id="risk-bar" class="bar"></div></div>
+      <pre id="result-json"></pre>
+    </section>
+
+    <section class="card error" id="error-section" hidden>
+      <h2>Error</h2>
+      <p id="error-message"></p>
+    </section>
+  </main>
+  <script src="/config.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

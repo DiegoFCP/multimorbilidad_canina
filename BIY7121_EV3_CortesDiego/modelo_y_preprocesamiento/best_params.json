@@ -1,0 +1,29 @@
+{
+  "best_params": {
+    "max_depth": 6,
+    "min_samples_leaf": 20,
+    "n_estimators": 200
+  },
+  "best_cv_f1": 0.5595077419887703,
+  "f1_test": 0.5614375910636231,
+  "roc_auc_test": 0.7867999290654276,
+  "metric_reference": "F1_cv=0.5595",
+  "param_grid": {
+    "n_estimators": [
+      100,
+      150,
+      200
+    ],
+    "max_depth": [
+      6,
+      10,
+      14,
+      null
+    ],
+    "min_samples_leaf": [
+      5,
+      10,
+      20
+    ]
+  }
+}

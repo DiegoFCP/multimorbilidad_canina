@@ -1,0 +1,11 @@
+[
+  "preventive_care_score",
+  "pa_activity_level",
+  "pa_avg_activity_intensity",
+  "total_daily_active_minutes",
+  "dental_brushing_freq",
+  "daily_supplements",
+  "diet_primary",
+  "weight_kg",
+  "age_derived"
+]
