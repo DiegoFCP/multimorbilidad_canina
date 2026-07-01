@@ -7,61 +7,177 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <div id="loading-overlay" hidden>
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="loading-text" id="loading-message">Consultando el modelo…</p>
+  </div>
+
   <main class="container">
-    <header>
+    <header class="hero">
       <h1>Predicción de multimorbilidad canina</h1>
       <p class="subtitle">
         Dog Aging Project — BIY7121 EV3 CortesDiego<br>
-        Insight: el cuidado preventivo y la actividad del tutor se asocian con la carga de enfermedades del perro.
+        El cuidado preventivo y la actividad del tutor se asocian con la carga de enfermedades del perro.
       </p>
     </header>
 
     <section class="card">
+      <h2>Guía y diccionario de variables</h2>
+      <p class="section-intro">
+        El modelo predice si el perro presenta <strong>multimorbilidad</strong> (2 o más condiciones de salud).
+        Ingresa hábitos del tutor y datos del perro; el sistema calcula internamente el <code>preventive_care_score</code>.
+      </p>
+      <details class="guide" open>
+        <summary>Ver diccionario de campos</summary>
+        <div class="guide-body">
+          <table class="dict-table">
+            <thead>
+              <tr>
+                <th>Campo</th>
+                <th>Qué significa</th>
+                <th>Rango / valores</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>pa_activity_level</code></td>
+                <td>Nivel general de actividad física que realiza el tutor con el perro (paseos, juego, ejercicio).</td>
+                <td>1 (bajo) → 4 (alto)</td>
+              </tr>
+              <tr>
+                <td><code>pa_avg_activity_intensity</code></td>
+                <td>Intensidad promedio de esas actividades (esfuerzo físico del perro).</td>
+                <td>0 a 4</td>
+              </tr>
+              <tr>
+                <td><code>total_daily_active_minutes</code></td>
+                <td>Minutos activos del perro por día (movimiento sostenido, no solo estar despierto).</td>
+                <td>0 – 600 min</td>
+              </tr>
+              <tr>
+                <td><code>dental_brushing_freq</code></td>
+                <td>Frecuencia de cepillado dental del perro (hábito preventivo del tutor).</td>
+                <td>0 (nunca) – 6 (muy frecuente)</td>
+              </tr>
+              <tr>
+                <td><code>daily_supplements</code></td>
+                <td>Uso de suplementos o frecuencia de examen dental profesional (proxy de cuidado preventivo).</td>
+                <td>0 – 5</td>
+              </tr>
+              <tr>
+                <td><code>diet_primary</code></td>
+                <td>Indica si la dieta principal incluye componente orgánico o de mayor calidad percibida.</td>
+                <td>0 = No, 1 = Sí</td>
+              </tr>
+              <tr>
+                <td><code>weight_kg</code></td>
+                <td>Peso corporal actual del perro en kilogramos.</td>
+                <td>1 – 80 kg</td>
+              </tr>
+              <tr>
+                <td><code>age_derived</code></td>
+                <td>Edad del perro en años. Variable con mayor peso en el modelo entrenado.</td>
+                <td>0 – 25 años</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="guide-note">
+            <strong>Resultado:</strong> la API devuelve <code>probability</code> (riesgo 0–100%) y
+            <code>multimorbidity_flag</code> (0 = bajo riesgo clasificado, 1 = multimorbilidad probable).
+            Umbral de decisión: 50%. En CSV usa columnas API o nombres DAP (<code>dd_edad_anios</code>, <code>mp_dental_brushing_frequency</code>, etc.).
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <section class="card">
       <h2>Ingreso manual</h2>
+      <div class="presets">
+        <p>Casos de ejemplo — rellenan el formulario automáticamente:</p>
+        <div class="actions">
+          <button type="button" class="btn-preset" data-preset="bajo">Bajo riesgo (joven)</button>
+          <button type="button" class="btn-preset" data-preset="medio">Riesgo medio</button>
+          <button type="button" class="btn-preset" data-preset="alto">Alto riesgo (senior)</button>
+        </div>
+      </div>
       <form id="predict-form">
         <div class="grid">
-          <label>Nivel de actividad (1-4)
+          <label class="field-label">
+            Nivel de actividad
+            <span class="field-hint">Escala 1–4 según frecuencia de ejercicio con el perro.</span>
             <input type="number" name="pa_activity_level" min="1" max="4" value="2" required>
           </label>
-          <label>Intensidad de actividad (0-4)
+          <label class="field-label">
+            Intensidad de actividad
+            <span class="field-hint">Esfuerzo físico promedio (0 = mínimo, 4 = máximo).</span>
             <input type="number" name="pa_avg_activity_intensity" min="0" max="4" step="0.1" value="1.5" required>
           </label>
-          <label>Minutos activos al día
+          <label class="field-label">
+            Minutos activos al día
+            <span class="field-hint">Tiempo diario en movimiento activo.</span>
             <input type="number" name="total_daily_active_minutes" min="0" max="600" value="60" required>
           </label>
-          <label>Frecuencia cepillado dental (0-6)
+          <label class="field-label">
+            Cepillado dental
+            <span class="field-hint">Frecuencia de cepillado (0–6).</span>
             <input type="number" name="dental_brushing_freq" min="0" max="6" value="2" required>
           </label>
-          <label>Suplementos / examen dental (0-5)
+          <label class="field-label">
+            Suplementos / examen dental
+            <span class="field-hint">Cuidado preventivo adicional (0–5).</span>
             <input type="number" name="daily_supplements" min="0" max="5" value="1" required>
           </label>
-          <label>Dieta orgánica (0=No, 1=Sí)
+          <label class="field-label">
+            Dieta orgánica
+            <span class="field-hint">0 = no, 1 = sí.</span>
             <input type="number" name="diet_primary" min="0" max="1" value="0" required>
           </label>
-          <label>Peso del perro (kg)
+          <label class="field-label">
+            Peso del perro (kg)
+            <span class="field-hint">Peso actual en kilogramos.</span>
             <input type="number" name="weight_kg" min="1" max="80" step="0.1" value="15" required>
           </label>
-          <label>Edad del perro (años)
+          <label class="field-label">
+            Edad del perro (años)
+            <span class="field-hint">Edad en años; predictor más relevante del modelo.</span>
             <input type="number" name="age_derived" min="0" max="25" step="0.5" value="6" required>
           </label>
         </div>
-        <button type="submit">Predecir riesgo</button>
+        <div class="actions">
+          <button type="submit" id="submit-btn">Predecir riesgo</button>
+        </div>
       </form>
     </section>
 
     <section class="card">
-      <h2>Subir CSV</h2>
-      <p class="hint">Se usará la primera fila del archivo. Columnas DAP crudas o campos API.</p>
-      <label for="csv-file">Archivo CSV</label>
-      <input type="file" id="csv-file" accept=".csv">
-      <button type="button" id="csv-predict-btn">Predecir desde CSV</button>
+      <h2>Subir CSV (predicción)</h2>
+      <p class="hint">Se procesa la <strong>primera fila de datos</strong> del archivo (después del encabezado).</p>
+      <div class="csv-row">
+        <label for="csv-file">Archivo CSV</label>
+        <input type="file" id="csv-file" accept=".csv">
+        <button type="button" class="btn-secondary" id="csv-predict-btn">Predecir desde CSV</button>
+      </div>
+    </section>
+
+    <section class="card card-retrain">
+      <h2>Reentrenamiento del modelo</h2>
+      <p class="hint">
+        Sube un CSV completo de entrenamiento (<code>maestro_dap.csv</code> o DAP consolidado).
+        La API reentrena el Random Forest con el mismo <code>param_grid</code> y actualiza el modelo en el servidor.
+        <strong>Puede tardar varios minutos.</strong>
+      </p>
+      <div class="csv-row">
+        <label for="retrain-csv-file">CSV de entrenamiento</label>
+        <input type="file" id="retrain-csv-file" accept=".csv">
+        <button type="button" class="btn-retrain" id="retrain-btn">Reentrenar modelo</button>
+      </div>
     </section>
 
     <section class="card" id="result-section" hidden>
       <h2>Resultado</h2>
       <div id="result-badge" class="badge"></div>
       <p id="result-probability"></p>
-      <div class="bar-wrap"><div id="risk-bar" class="bar"></div></div>
+      <div class="bar-wrap" aria-hidden="true"><div id="risk-bar" class="bar"></div></div>
       <pre id="result-json"></pre>
     </section>
 
@@ -69,8 +185,16 @@
       <h2>Error</h2>
       <p id="error-message"></p>
     </section>
+
+    <section class="card" id="retrain-result-section" hidden>
+      <h2>Reentrenamiento completado</h2>
+      <div id="retrain-badge" class="badge success">Modelo actualizado</div>
+      <p id="retrain-summary"></p>
+      <pre id="retrain-json"></pre>
+    </section>
   </main>
   <script>window.PREDICT_API_URL = "{{ predict_api_url }}";</script>
+  <script>window.RETRAIN_API_URL = "{{ retrain_api_url }}";</script>
   <script src="/static/app.js"></script>
 </body>
 </html>

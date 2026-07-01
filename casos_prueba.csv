@@ -1,0 +1,6 @@
+caso,pa_activity_level,pa_avg_activity_intensity,total_daily_active_minutes,dental_brushing_freq,daily_supplements,diet_primary,weight_kg,age_derived
+bajo_riesgo_joven,4,3.0,180,5,2,1,12,3
+alto_riesgo_senior,1,0.5,25,0,0,0,30,14
+riesgo_medio,2,1.5,75,2,1,0,18,7
+joven_buen_cuidado,4,3.0,200,6,3,1,14,4
+mayor_buen_cuidado,4,3.0,200,6,3,1,14,15

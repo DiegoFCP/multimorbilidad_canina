@@ -35,6 +35,14 @@ from preprocess import (  # noqa: E402
 app = Flask(__name__)
 
 
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
+
 def run_retrain(df: pd.DataFrame) -> dict:
     X_raw, y, medians, preventive_stats = prepare_dataframe_features(df)
     mask = y.notna() & (y.nunique() >= 1)
@@ -86,7 +94,7 @@ def run_retrain(df: pd.DataFrame) -> dict:
 
     return {
         "status": "ok",
-        "rows_used": int(len(X)),
+        "rows_used": int(len(X_raw)),
         "best_params": grid.best_params_,
         "f1_cv": float(grid.best_score_),
         "f1_test": f1_test,
@@ -101,8 +109,11 @@ def health():
     return jsonify({"status": "ok", "service": "api_reentrenamiento"})
 
 
-@app.route("/retrain", methods=["POST"])
+@app.route("/retrain", methods=["POST", "OPTIONS"])
 def retrain():
+    if request.method == "OPTIONS":
+        return "", 204
+
     df = None
 
     if "file" in request.files and request.files["file"].filename:
