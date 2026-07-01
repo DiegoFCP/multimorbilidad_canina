@@ -20,8 +20,12 @@ services:
     plan: free
     rootDir: BIY7121_EV3_CortesDiego
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --chdir api_reentrenamiento --bind 0.0.0.0:$PORT --timeout 300 app:app
+    startCommand: gunicorn --chdir api_reentrenamiento --bind 0.0.0.0:$PORT --timeout 600 --workers 1 app:app
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
+      - key: RETRAIN_MAX_ROWS
+        value: "15000"
+      - key: RETRAIN_FULL_GRID
+        value: "false"

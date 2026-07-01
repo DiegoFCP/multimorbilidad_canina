@@ -115,8 +115,11 @@ function showRetrainResult(data) {
     : "—";
 
   retrainSummary.textContent =
-    `Filas usadas: ${data.rows_used ?? "—"} · F1 CV: ${f1cv}% · F1 test: ${f1test}% · ` +
-    `Tasa multimorbilidad: ${rate}% · ${data.metric_reference || ""}`;
+    `Filas usadas: ${data.rows_used ?? "—"}` +
+    (data.rows_received ? ` (recibidas: ${data.rows_received})` : "") +
+    ` · F1 CV: ${f1cv}% · F1 test: ${f1test}% · ` +
+    `Tasa multimorbilidad: ${rate}% · ${data.metric_reference || ""}` +
+    (data.note ? ` — ${data.note}` : "");
 
   retrainJson.textContent = JSON.stringify(data, null, 2);
   retrainResultSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -148,7 +151,15 @@ async function callRetrain(file) {
       body: formData,
       signal: controller.signal,
     });
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error(
+        "El servidor cerró la conexión (posible timeout o memoria insuficiente en Render). " +
+          "Pruebe en local o espere a que el servicio despierte y reintente."
+      );
+    }
     if (!response.ok) {
       throw new Error(data.error || `HTTP ${response.status}`);
     }
